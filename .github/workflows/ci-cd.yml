@@ -1,0 +1,74 @@
+name: CI-CD BlueGreen
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  IMAGE: ${{ secrets.ACR_LOGIN_SERVER }}/myapp:${{ github.sha }}
+
+jobs:
+  build-and-push:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Log in to ACR
+        uses: azure/docker-login@v1
+        with:
+          login-server: ${{ secrets.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build and push Docker image
+        shell: pwsh
+        run: |
+          # Lowercase image tag to avoid Docker invalid reference error
+          $imageTag = "${env:IMAGE}".ToLower()
+          docker build -t $imageTag .
+          docker push $imageTag
+          echo "IMAGE=$imageTag" >> $env:GITHUB_ENV  # make it available for next jobs
+
+  trivy-scan:
+    runs-on: windows-latest
+    needs: build-and-push
+    steps:
+      - name: Trivy scan
+        uses: aquasecurity/trivy-action@v0.4.0
+        with:
+          image-ref: ${{ env.IMAGE }}
+          format: 'table'
+          exit-code: '1'  # fail if HIGH/CRITICAL vulnerabilities found
+
+  deploy-green:
+    runs-on: windows-latest
+    needs: trivy-scan
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set AKS context
+        uses: azure/aks-set-context@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          cluster-name: ${{ secrets.AKS_CLUSTER }}
+          resource-group: ${{ secrets.AKS_RESOURCE_GROUP }}
+
+      - name: Deploy green version
+        run: |
+          kubectl apply -f k8s/green-deploy.yaml
+          kubectl rollout status deploy/myapp-green -w
+
+      - name: Smoke test
+        shell: cmd
+        run: |
+          for /f "tokens=*" %%i in ('kubectl get svc myapp-svc -o jsonpath="{.status.loadBalancer.ingress[0].ip}"') do set INGRESS_HOST=%%i
+          echo INGRESS_HOST=%INGRESS_HOST%
+          smoke-test.bat
+
+      - name: Switch service to green
+        shell: pwsh
+        run: |
+          kubectl patch svc myapp-svc -p '{"spec":{"selector":{"app":"myapp","version":"green"}}}'
