@@ -92,8 +92,19 @@ jobs:
       - name: Smoke test
         run: |
           INGRESS_HOST=$(kubectl get svc myapp-svc -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-          curl -f http://$INGRESS_HOST/health || exit 1
+          curl -f http://$INGRESS_HOST/health || exit 1 
 
+      - name: Rollback green if smoke test fails
+        if: failure()
+        run: |
+          echo "Smoke test failed, rolling back green deployment..."
+          kubectl rollout undo deployment/myapp-green
+
+      - name: Switch service to green
+        if: success()
+        run: |
+          kubectl patch svc myapp-svc -p "{\"spec\":{\"selector\":{\"app\":\"myapp\",\"version\":\"green\"}}}"
+      
       - name: Switch service to green
         run: |
           kubectl patch svc myapp-svc -p "{\"spec\":{\"selector\":{\"app\":\"myapp\",\"version\":\"green\"}}}"
