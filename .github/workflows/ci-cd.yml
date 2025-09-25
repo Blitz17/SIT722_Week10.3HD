@@ -20,7 +20,6 @@ jobs:
           password: ${{ secrets.ACR_PASSWORD }}
 
       - name: Set image name
-        id: set-image
         run: |
           IMAGE="${{ secrets.ACR_LOGIN_SERVER }}/myapp:${GITHUB_SHA,,}"
           echo "IMAGE=$IMAGE" >> $GITHUB_ENV
@@ -37,15 +36,16 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      - name: Run Trivy scan via Docker
-        env:
-          IMAGE: ${{ needs.build-and-push.outputs.IMAGE }}
+      - name: Set image name for scan
         run: |
+          IMAGE="${{ secrets.ACR_LOGIN_SERVER }}/myapp:${GITHUB_SHA,,}"
+          echo "IMAGE=$IMAGE"
+          # Now IMAGE is local to this job
+          
+      - name: Run Trivy scan via Docker
+        run: |
+          IMAGE="${{ secrets.ACR_LOGIN_SERVER }}/myapp:${GITHUB_SHA,,}"
           echo "DEBUG: IMAGE=$IMAGE"
-          if [ -z "$IMAGE" ]; then
-            echo "ERROR: IMAGE is not set"
-            exit 1
-          fi
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
             -v $HOME/.cache/trivy:/root/.cache/trivy \
             ghcr.io/aquasecurity/trivy:0.44.0 image \
@@ -58,6 +58,11 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
 
+      - name: Set image name for deployment
+        run: |
+          IMAGE="${{ secrets.ACR_LOGIN_SERVER }}/myapp:${GITHUB_SHA,,}"
+          echo "IMAGE=$IMAGE"
+
       - name: Set AKS context
         uses: azure/aks-set-context@v2
         with:
@@ -67,7 +72,7 @@ jobs:
 
       - name: Deploy green version
         run: |
-          kubectl apply -f k8s/green-deploy.yaml
+          kubectl set image deployment/myapp-green myapp=$IMAGE
           kubectl rollout status deploy/myapp-green -w
 
       - name: Get LoadBalancer IP
