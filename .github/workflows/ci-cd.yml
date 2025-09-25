@@ -76,7 +76,7 @@ jobs:
           resource-group: ${{ secrets.AKS_RESOURCE_GROUP }}
           cluster-name: ${{ secrets.AKS_CLUSTER }}
 
-      - name: Deploy green version
+      - name: Deploy to green
         run: |
           kubectl set image deployment/myapp-green myapp=$IMAGE
           kubectl rollout status deploy/myapp-green -w
