@@ -78,6 +78,7 @@ jobs:
 
       - name: Deploy to green
         run: |
+          IMAGE="${{ secrets.ACR_LOGIN_SERVER }}/myapp:${GITHUB_SHA,,}"
           kubectl set image deployment/myapp-green myapp=$IMAGE
           kubectl rollout status deploy/myapp-green -w
 
@@ -90,6 +91,7 @@ jobs:
 
       - name: Smoke test
         run: |
+          INGRESS_HOST=$(kubectl get svc myapp-svc -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
           curl -f http://$INGRESS_HOST/health || exit 1
 
       - name: Switch service to green
