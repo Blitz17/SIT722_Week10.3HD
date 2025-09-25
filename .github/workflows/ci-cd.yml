@@ -24,9 +24,12 @@ jobs:
       - name: Set image name
         id: set-image
         run: |
-          IMAGE="${{ secrets.ACR_LOGIN_SERVER }}/myapp:${GITHUB_SHA,,}"
-          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+          IMAGE="${{ secrets.ACR_LOGIN_SERVER }}/myapp:${GITHUB_SHA}"
           echo "IMAGE=$IMAGE" >> $GITHUB_OUTPUT
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+
+      - name: Debug image
+        run: echo "Image is ${{ steps.set-image.outputs.IMAGE }}"
 
       - name: Build and push Docker image
         run: |
@@ -40,6 +43,9 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
 
+      - name: Debug trivy IMAGE
+        run: echo "Trivy will scan $IMAGE"
+        
       - name: Run Trivy scan via Docker
         env:
           IMAGE: ${{ needs.build-and-push.outputs.IMAGE }}
