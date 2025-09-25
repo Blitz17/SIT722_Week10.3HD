@@ -36,8 +36,9 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Run Trivy scan via Docker
-        run: |
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasecurity/trivy:0.44.0 image --exit-code 1 --severity HIGH,CRITICAL ${{ env.IMAGE }}
+  run: |
+    docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+      ghcr.io/aquasecurity/trivy:0.44.0 image --exit-code 1 --severity HIGH,CRITICAL ${{ env.IMAGE }}
 
   deploy-green:
     runs-on: ubuntu-latest
