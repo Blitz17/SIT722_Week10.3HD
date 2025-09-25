@@ -30,8 +30,8 @@ jobs:
 
       - name: Build and push Docker image
         run: |
-          docker build -t ${{ env.IMAGE }} .
-          docker push ${{ env.IMAGE }}
+          docker build -t ${{ steps.set-image.outputs.IMAGE }} .
+          docker push ${{ steps.set-image.outputs.IMAGE }}
 
   trivy-scan:
     runs-on: ubuntu-latest
@@ -44,9 +44,15 @@ jobs:
         env:
           IMAGE: ${{ needs.build-and-push.outputs.IMAGE }}
         run: |
+          if [ -z "$IMAGE" ]; then
+            echo "ERROR: IMAGE is not set"
+            exit 1
+          fi
           echo "Scanning image $IMAGE"
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-            ghcr.io/aquasecurity/trivy:0.44.0 image --exit-code 1 --severity HIGH,CRITICAL $IMAGE
+            -v $HOME/.cache/trivy:/root/.cache/trivy \
+            ghcr.io/aquasecurity/trivy:0.44.0 image \
+            --exit-code 1 --severity HIGH,CRITICAL --no-progress $IMAGE
 
   deploy-green:
     runs-on: ubuntu-latest
