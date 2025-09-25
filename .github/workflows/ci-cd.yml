@@ -34,10 +34,10 @@ jobs:
     needs: build-and-push
     steps:
       - name: Trivy scan
-        uses: aquasecurity/trivy-action@v0.4.0
+        uses: aquasecurity/trivy-action@v0.33.0
         with:
           image-ref: ${{ env.IMAGE }}
-          format: table
+          format: 'table'
           exit-code: '1'  # Fail if HIGH/CRITICAL vulnerabilities found
 
   deploy-green:
