@@ -5,12 +5,11 @@ on:
     branches:
       - main
 
-env:
-  IMAGE: ""  # Will be set dynamically after build
-
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    env:
+      IMAGE: ""
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
@@ -24,7 +23,7 @@ jobs:
 
       - name: Build and push Docker image
         run: |
-          IMAGE=${{ secrets.ACR_LOGIN_SERVER }}/myapp:${GITHUB_SHA,,}  # lowercase tag
+          IMAGE="${{ secrets.ACR_LOGIN_SERVER }}/myapp:${GITHUB_SHA,,}"  # lowercase tag
           echo "IMAGE=$IMAGE" >> $GITHUB_ENV
           docker build -t $IMAGE .
           docker push $IMAGE
@@ -34,7 +33,7 @@ jobs:
     needs: build-and-push
     steps:
       - name: Trivy scan
-        uses: aquasecurity/trivy-action@v0.31.0
+        uses: aquasecurity/trivy-action@refs/tags/v0.31.0
         with:
           image-ref: ${{ env.IMAGE }}
           format: 'table'
