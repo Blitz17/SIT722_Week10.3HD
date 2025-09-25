@@ -104,7 +104,3 @@ jobs:
         if: success()
         run: |
           kubectl patch svc myapp-svc -p "{\"spec\":{\"selector\":{\"app\":\"myapp\",\"version\":\"green\"}}}"
-      
-      - name: Switch service to green
-        run: |
-          kubectl patch svc myapp-svc -p "{\"spec\":{\"selector\":{\"app\":\"myapp\",\"version\":\"green\"}}}"
