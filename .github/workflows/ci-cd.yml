@@ -6,11 +6,11 @@ on:
       - main
 
 env:
-  IMAGE: ${{ secrets.ACR_LOGIN_SERVER }}/myapp:${{ github.sha }}
+  IMAGE: ""  # Will be set dynamically after build
 
 jobs:
   build-and-push:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
@@ -23,27 +23,25 @@ jobs:
           password: ${{ secrets.ACR_PASSWORD }}
 
       - name: Build and push Docker image
-        shell: pwsh
         run: |
-          # Lowercase image tag to avoid Docker invalid reference error
-          $imageTag = "${env:IMAGE}".ToLower()
-          docker build -t $imageTag .
-          docker push $imageTag
-          echo "IMAGE=$imageTag" >> $env:GITHUB_ENV  # make it available for next jobs
+          IMAGE=${{ secrets.ACR_LOGIN_SERVER }}/myapp:${GITHUB_SHA,,}  # lowercase tag
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+          docker build -t $IMAGE .
+          docker push $IMAGE
 
   trivy-scan:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     needs: build-and-push
     steps:
       - name: Trivy scan
         uses: aquasecurity/trivy-action@v0.4.0
         with:
           image-ref: ${{ env.IMAGE }}
-          format: 'table'
-          exit-code: '1'  # fail if HIGH/CRITICAL vulnerabilities found
+          format: table
+          exit-code: '1'  # Fail if HIGH/CRITICAL vulnerabilities found
 
   deploy-green:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     needs: trivy-scan
     steps:
       - name: Checkout repo
@@ -61,14 +59,17 @@ jobs:
           kubectl apply -f k8s/green-deploy.yaml
           kubectl rollout status deploy/myapp-green -w
 
-      - name: Smoke test
-        shell: cmd
+      - name: Get LoadBalancer IP
+        id: lb
         run: |
-          for /f "tokens=*" %%i in ('kubectl get svc myapp-svc -o jsonpath="{.status.loadBalancer.ingress[0].ip}"') do set INGRESS_HOST=%%i
-          echo INGRESS_HOST=%INGRESS_HOST%
-          smoke-test.bat
+          INGRESS_HOST=$(kubectl get svc myapp-svc -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          echo "INGRESS_HOST=$INGRESS_HOST" >> $GITHUB_ENV
+          echo "Ingress host: $INGRESS_HOST"
+
+      - name: Smoke test
+        run: |
+          curl -f http://$INGRESS_HOST/health || exit 1
 
       - name: Switch service to green
-        shell: pwsh
         run: |
-          kubectl patch svc myapp-svc -p '{"spec":{"selector":{"app":"myapp","version":"green"}}}'
+          kubectl patch svc myapp-svc -p "{\"spec\":{\"selector\":{\"app\":\"myapp\",\"version\":\"green\"}}}"
