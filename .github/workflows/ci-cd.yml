@@ -45,11 +45,13 @@ jobs:
       - name: Run Trivy scan via Docker
         run: |
           IMAGE="${{ secrets.ACR_LOGIN_SERVER }}/myapp:${GITHUB_SHA,,}"
-          echo "DEBUG: IMAGE=$IMAGE"
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
             -v $HOME/.cache/trivy:/root/.cache/trivy \
             ghcr.io/aquasecurity/trivy:0.44.0 image \
-            --exit-code 1 --severity HIGH,CRITICAL --no-progress $IMAGE
+            --exit-code 1 --severity HIGH,CRITICAL \
+            --username ${{ secrets.ACR_USERNAME }} \
+            --password ${{ secrets.ACR_PASSWORD }} \
+            --no-progress $IMAGE
 
   deploy-green:
     runs-on: ubuntu-latest
