@@ -1,5 +1,5 @@
 name: CI-CD BlueGreen
-# Hi
+
 on:
   push:
     branches:
@@ -8,8 +8,8 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-    env:
-      IMAGE: ""
+    outputs:
+      IMAGE: ${{ steps.set-image.outputs.IMAGE }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
@@ -21,12 +21,17 @@ jobs:
           username: ${{ secrets.ACR_USERNAME }}
           password: ${{ secrets.ACR_PASSWORD }}
 
+      - name: Set image name
+        id: set-image
+        run: |
+          IMAGE="${{ secrets.ACR_LOGIN_SERVER }}/myapp:${GITHUB_SHA,,}"
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+          echo "::set-output name=IMAGE::$IMAGE"
+
       - name: Build and push Docker image
         run: |
-          IMAGE="${{ secrets.ACR_LOGIN_SERVER }}/myapp:${GITHUB_SHA,,}"  # lowercase tag
-          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
-          docker build -t $IMAGE .
-          docker push $IMAGE
+          docker build -t ${{ env.IMAGE }} .
+          docker push ${{ env.IMAGE }}
 
   trivy-scan:
     runs-on: ubuntu-latest
@@ -37,7 +42,7 @@ jobs:
 
       - name: Run Trivy scan via Docker
         env:
-          IMAGE: ${{ env.IMAGE }}
+          IMAGE: ${{ needs.build-and-push.outputs.IMAGE }}
         run: |
           echo "Scanning image $IMAGE"
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
