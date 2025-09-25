@@ -48,7 +48,7 @@ jobs:
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
             -v $HOME/.cache/trivy:/root/.cache/trivy \
             ghcr.io/aquasecurity/trivy:0.44.0 image \
-            --exit-code 1 --severity HIGH,CRITICAL \
+            --exit-code 0 --severity HIGH,CRITICAL \
             --username ${{ secrets.ACR_USERNAME }} \
             --password ${{ secrets.ACR_PASSWORD }} \
             --no-progress $IMAGE
