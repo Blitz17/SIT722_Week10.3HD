@@ -39,6 +39,7 @@ jobs:
         env:
           IMAGE: ${{ env.IMAGE }}
         run: |
+          echo "Scanning image $IMAGE"
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
             ghcr.io/aquasecurity/trivy:0.44.0 image --exit-code 1 --severity HIGH,CRITICAL $IMAGE
 
