@@ -1,0 +1,1 @@
+az ad sp create-for-rbac --name "devops-sp" --role Contributor --scopes /subscriptions/11bcafc2-f13b-44cb-9da1-16719612b982 --sdk-auth > azure-creds.json 
